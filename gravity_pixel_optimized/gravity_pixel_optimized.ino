@@ -13,7 +13,7 @@
 // при сильном уменьшении шага всё идёт по п*зде, что очень странно для Эйлера...
 
 // ЭФФЕКТЫ
-#define PIXEL_AMOUNT 30      // число "живых" пикселей
+#define PIXEL_AMOUNT 50      // число "живых" пикселей
 #define GLOW 0               // свечение
 #define ALL_BLUE 0           // все синим
 
@@ -167,7 +167,7 @@ void integrate() {
   stepTime = (float)((long)millis() - integrTimer) / 1000;            // расчёт времени шага интегрирования
   integrTimer = millis();
   for (byte i = 0; i < PIXEL_AMOUNT; i++) {                           // для каждого пикселя
-    int thisAccel_x, thisAccel_y;                                     // текущее ускорение
+    int thisAccel_x, thisAccel_y;
     int grav, frict;
 
     ///////////////////// ОСЬ Х /////////////////////
