@@ -14,6 +14,7 @@
 #define PIN 6                // пин ленты Din
 #define GLOW 0               // свечение
 #define ALL_BLUE 0           // все синим
+#define FRICTION 1           // трение
 
 #define MIN_STEP 30          // минимальный шаг интегрирования (миллисекункды)
 // при сильном уменьшении шага всё идёт по п*зде, что очень странно для Эйлера...
@@ -78,14 +79,13 @@ byte friction[PIXEL_AMOUNT];
 byte bounce[PIXEL_AMOUNT];
 byte color[PIXEL_AMOUNT];
 
-float mpuPitch = 0;
-float mpuRoll = 0;
-float mpuYaw = 0;
+float mpuPitch;
+float mpuRoll;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
 unsigned long integrTimer, loopTimer;
-float stepTime, loopTime;
+float stepTime;
 // --------------------- ДЛЯ РАЗРАБОТЧИКОВ ----------------------
 
 void setup() {
@@ -106,8 +106,8 @@ void setup() {
 
   for (byte i = 0; i < PIXEL_AMOUNT; i++) {
     // получаем случайные величины
-    friction[i] = (float)random(0, 30);   // ТРЕНИЕ. В дальнейшем делится на 100
-    bounce[i] = (float)random(60, 95);     // ОТСКОК. В дальнейшем делится на 100
+    friction[i] = random(0, 30);   // ТРЕНИЕ. В дальнейшем делится на 100
+    bounce[i] = random(60, 95);     // ОТСКОК. В дальнейшем делится на 100
 
     // здесь хитро, чтобы вся палитра цветов досталась всем пикселям
     color[i] = map(i, 0, PIXEL_AMOUNT, 0, 7);
@@ -162,38 +162,42 @@ void glowDraw(byte x, byte y, byte color) {
 }
 
 void integrate() {
-  get_angles();                                                       // получить углы с mpu
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);                     // получить ускорения
+  mpuPitch = (float)ax / 16384;                                     // 16384 это величина g с акселерометра
+  mpuRoll = (float)ay / 16384;
+
   stepTime = (float)((long)millis() - integrTimer) / 1000;            // расчёт времени шага интегрирования
   integrTimer = millis();
   for (byte i = 0; i < PIXEL_AMOUNT; i++) {                           // для каждого пикселя
     int thisAccel_x, thisAccel_y;                                     // текущее ускорение
+    int grav, frict;
 
     ///////////////////// ОСЬ Х /////////////////////
-    int grav = (float)G_CONST * sin(mpuPitch) * 1000;    // сила тяжести
-    int frict = (float)G_CONST * cos(mpuPitch) * ((float)friction[i] / 100) * 1000;  // сила трения
-
-    if (x_vel[i] > 0) frict = -frict;   // знак силы трения зависит от направления вектора скорости
-
-    if (x_vel[i] == 0 && abs(grav) < frict) thisAccel_x = 0;  // трение покоя
-    else thisAccel_x = (grav + frict);                        // ускорение
+    grav = (float)G_CONST * mpuPitch * 1000;    // сила тяжести
+    if (FRICTION) {
+      frict = (float)G_CONST * (1 - mpuPitch) * friction[i] * 10; // сила трения
+      if (x_vel[i] > 0) frict = -frict;   // знак силы трения зависит от направления вектора скорости
+      if (x_vel[i] == 0 && abs(grav) < frict) thisAccel_x = 0;  // трение покоя
+      else thisAccel_x = (grav + frict);                        // ускорение
+    } else thisAccel_x = grav;
 
     /////////////////////// ОСЬ У /////////////////////
-    grav = (float)G_CONST * sin(mpuRoll) * 1000;
-    frict = (float)G_CONST * cos(mpuRoll) * ((float)friction[i] / 100) * 1000;
-
-    if (y_vel[i] > 0) frict = -frict;
-
-    if (y_vel[i] == 0 && abs(grav) < frict) thisAccel_y = 0;
-    else thisAccel_y = (grav + frict);
+    grav = (float)G_CONST * mpuRoll * 1000;
+    if (FRICTION) {
+      frict = (float)G_CONST * (1 - mpuRoll) * friction[i] * 10;
+      if (y_vel[i] > 0) frict = -frict;
+      if (y_vel[i] == 0 && abs(grav) < frict) thisAccel_y = 0;
+      else thisAccel_y = (grav + frict);
+    } else thisAccel_y = grav;
 
     ///////////////////// ИНТЕГРИРУЕМ ///////////////////
     // скорость на данном шаге V = V0 + ax*dt
-    x_vel[i] = x_vel[i] + (float)thisAccel_x * stepTime;
-    y_vel[i] = y_vel[i] + (float)thisAccel_y * stepTime;
+    x_vel[i] += (float)thisAccel_x * stepTime;
+    y_vel[i] += (float)thisAccel_y * stepTime;
 
     // координата на данном шаге X = X0 + Vx*dt
-    x_dist[i] = x_dist[i] + (float)x_vel[i] * stepTime;
-    y_dist[i] = y_dist[i] + (float)y_vel[i] * stepTime;
+    x_dist[i] += (float)x_vel[i] * stepTime;
+    y_dist[i] += (float)y_vel[i] * stepTime;
 
     /////////////////// ПОВЕДЕНИЕ У СТЕНОК /////////////////
     // рассматриваем 4 стенки матрицы
@@ -201,8 +205,8 @@ void integrate() {
       x_dist[i] = 0;         // возвращаем на край
       x_vel[i] = -x_vel[i] * (float)bounce[i] / 100;    // скорость принимаем с обратным знаком и * на коэффициент отскока
     }
-    if (x_dist[i] > MATR_X_M - 10) {
-      x_dist[i] = MATR_X_M - 10;
+    if (x_dist[i] > MATR_X_M - PIXELZISE) {
+      x_dist[i] = MATR_X_M - PIXELZISE;
       x_vel[i] = -x_vel[i] * (float)bounce[i] / 100;
     }
 
@@ -210,25 +214,11 @@ void integrate() {
       y_dist[i] = 0;
       y_vel[i] = -y_vel[i] * (float)bounce[i] / 100;
     }
-    if (y_dist[i] > MATR_Y_M - 10) {
-      y_dist[i] = MATR_Y_M - 10;
+    if (y_dist[i] > MATR_Y_M - PIXELZISE) {
+      y_dist[i] = MATR_Y_M - PIXELZISE;
       y_vel[i] = -y_vel[i] * (float)bounce[i] / 100;
     }
   }
-}
-
-// функция расчёта углов
-void get_angles() {
-  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);           // получить ускорения
-
-  // найти угол тупо как проекцию g на оси через синус
-  mpuPitch = (float)ax / 16384;                           // 16384 это величина g с акселерометра
-  mpuPitch = constrain(mpuPitch, -1, 1);                  // ограничить диапазон (бывает, пробивает)
-  mpuPitch = asin(mpuPitch);                              // спроецировать
-
-  mpuRoll = (float)ay / 16384;
-  mpuRoll = constrain(mpuRoll, -1, 1);
-  mpuRoll = asin(mpuRoll);
 }
 
 void mpuSetup() {
@@ -243,14 +233,4 @@ void mpuSetup() {
   mpu.setXGyroOffset(offsets[3]);
   mpu.setYGyroOffset(offsets[4]);
   mpu.setZGyroOffset(offsets[5]);
-  /*
-    // Acceleration range: ± 2   ± 4  ± 8  ± 16 g
-    // 1G value:           16384 8192 4096 2048
-    // MAX G value:        32768
-    mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
-
-    // Gyroscope range: 250   500  1000 2000 °/s
-    // MAX value:       32768
-    mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
-  */
 }
