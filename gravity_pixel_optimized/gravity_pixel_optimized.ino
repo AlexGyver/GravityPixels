@@ -1,23 +1,21 @@
 // --------------------- НАСТРОЙКИ ----------------------
-#define PIXEL_AMOUNT 30      // число "живых" пикселей
-#define G_CONST 9.81         // ускорение свободного падения
-
+// МАТРИЦА
+#define PIN 6                // пин ленты Din
 #define BRIGHTNESS 150        // яркость (0 - 255)
-
 #define MATR_X 16            // число светодиодов по х
 #define MATR_Y 16            // число светодиодов по у 
-#define MATR_X_M 160         // размер матрицы в миллиметрах х
-#define MATR_Y_M 160         // размер матрицы в миллиметрах у
+#define PIXELSIZE 10         // размер пикселя мм
 
-#define PIXELZISE 10         // размер пикселя мм
-
-#define PIN 6                // пин ленты Din
-#define GLOW 0               // свечение
-#define ALL_BLUE 0           // все синим
+// ФИЗИКА
+#define G_CONST 9.81         // ускорение свободного падения
 #define FRICTION 1           // трение
-
 #define MIN_STEP 30          // минимальный шаг интегрирования (миллисекункды)
 // при сильном уменьшении шага всё идёт по п*зде, что очень странно для Эйлера...
+
+// ЭФФЕКТЫ
+#define PIXEL_AMOUNT 30      // число "живых" пикселей
+#define GLOW 0               // свечение
+#define ALL_BLUE 0           // все синим
 
 // оффсеты для акселерометра
 int offsets[6] = { -3214, -222, 1324, -2, -67, -12};
@@ -68,8 +66,8 @@ MPU6050 mpu;
 // ---------- БИБЛИОТЕКИ -----------
 
 // --------------------- ДЛЯ РАЗРАБОТЧИКОВ ----------------------
-#define DIST_TO_LED_X (int)MATR_X / MATR_X_M
-#define DIST_TO_LED_Y (int)MATR_Y / MATR_Y_M
+#define MATR_X_M MATR_X*PIXELSIZE         // размер матрицы в миллиметрах х
+#define MATR_Y_M MATR_Y*PIXELSIZE         // размер матрицы в миллиметрах у
 
 int x_vel[PIXEL_AMOUNT];     // МИЛЛИМЕТРЫ В СЕКУНДУ
 int y_vel[PIXEL_AMOUNT];     // МИЛЛИМЕТРЫ В СЕКУНДУ
@@ -121,8 +119,8 @@ void loop() {
     integrate();
     strip.clear();
     for (byte i = 0; i < PIXEL_AMOUNT; i++) {
-      byte nowDistX = floor(x_dist[i] * DIST_TO_LED_X);   // перевести миллиметры в пиксели
-      byte nowDistY = floor(y_dist[i] * DIST_TO_LED_Y);   // перевести миллиметры в пиксели
+      byte nowDistX = floor(x_dist[i] / PIXELSIZE);   // перевести миллиметры в пиксели
+      byte nowDistY = floor(y_dist[i] / PIXELSIZE);   // перевести миллиметры в пиксели
 
       if (GLOW) {
         glowDraw(nowDistX - 1, nowDistY, GLOW_FADE1);        // нарисовать точку
@@ -205,8 +203,8 @@ void integrate() {
       x_dist[i] = 0;         // возвращаем на край
       x_vel[i] = -x_vel[i] * (float)bounce[i] / 100;    // скорость принимаем с обратным знаком и * на коэффициент отскока
     }
-    if (x_dist[i] > MATR_X_M - PIXELZISE) {
-      x_dist[i] = MATR_X_M - PIXELZISE;
+    if (x_dist[i] > MATR_X_M - PIXELSIZE) {
+      x_dist[i] = MATR_X_M - PIXELSIZE;
       x_vel[i] = -x_vel[i] * (float)bounce[i] / 100;
     }
 
@@ -214,8 +212,8 @@ void integrate() {
       y_dist[i] = 0;
       y_vel[i] = -y_vel[i] * (float)bounce[i] / 100;
     }
-    if (y_dist[i] > MATR_Y_M - PIXELZISE) {
-      y_dist[i] = MATR_Y_M - PIXELZISE;
+    if (y_dist[i] > MATR_Y_M - PIXELSIZE) {
+      y_dist[i] = MATR_Y_M - PIXELSIZE;
       y_vel[i] = -y_vel[i] * (float)bounce[i] / 100;
     }
   }
