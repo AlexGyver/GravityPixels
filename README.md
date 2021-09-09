@@ -30,11 +30,11 @@
 <a id="chapter-3"></a>
 ## Материалы и компоненты
 ### Ссылки оставлены на магазины, с которых я закупаюсь уже не один год
-* Arduino NANO https://ali.ski/tmUgl
-* Макетная плата https://ali.ski/A55O4
-* Провода для макетки https://ali.ski/A55O4
-* Акселерометр https://ali.ski/IJqQUn
-* Матрица 16х16 RGB https://ali.ski/mw0Z1y
+* Arduino NANO https://ali.ski/uai20_
+* Макетная плата https://ali.ski/meEvjx
+* Провода для макетки https://ali.ski/meEvjx
+* Акселерометр https://ali.ski/CK19v
+* Матрица 16х16 RGB https://ali.ski/4lFRdI
 
 ## Вам скорее всего пригодится
 * [Всё для пайки (паяльники и примочки)](http://alexgyver.ru/all-for-soldering/)
